@@ -1,6 +1,8 @@
 import pymysql
 import re
 import datetime
+
+from pymysql import Error
 from twisted.enterprise import adbapi  # twisted的enterprise中有一个模块adbapi,可以将我们的mysql操作变成异步的操作
 
 
@@ -52,7 +54,7 @@ class MySQLTwistedPipeline(object):
                 '球半': -1.5, '一球/球半': -1.25, '一球': -1, '半球/一球': -0.75, '半球': -0.5, '平手/半球': -0.25, '平手': 0,
                 '受让三球': 3, '受让两球半/三球': 2.75, '受让两球半': 2.5, '受让两球/两球半': 2.25, '受让两球': 2, '受让球半/两球': 1.75,
                 '受让球半': 1.5, '受让一球/球半': 1.25, '受让一球': 1, '受让半球/一球': 0.75, '受让半球': 0.5, '受让平手/半球': 0.25}
-        sql = 'INSERT ignore INTO lottery (match_id,jingcai_id,type,title,change_time,handicap,' \
+        sql = 'INSERT INTO lottery (match_id,jingcai_id,type,title,change_time,handicap,' \
               'handicap_cn,water,water_cn,result) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'
         match_id = item['id']
         result = item['result']
@@ -74,4 +76,9 @@ class MySQLTwistedPipeline(object):
             water_cn = self.water_judge(float(water))
             values = (match_id, jingcai_id, type, title, tidy_time,
                       handicap, handicap_cn, water, water_cn, result)
-            cursor.execute(sql, values)
+            try:
+                cursor.execute(sql, values)
+            except Error as e:
+                print(e)
+                cursor.execute(update_sql)
+                print('update完成~')
