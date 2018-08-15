@@ -13,4 +13,5 @@ class LotteryItem(scrapy.Item):
     id = scrapy.Field()
     info = scrapy.Field()
     tendency = scrapy.Field()
+    result = scrapy.Field()
     pass

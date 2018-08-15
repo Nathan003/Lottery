@@ -24,20 +24,23 @@ class LotterySpider(scrapy.Spider):
             guestTeam = response.xpath("//*[@id='" + id + "']/td[7]/a[1]/text()").extract()
             teamId = response.xpath("//*[@id='" + id + "']/td[5]/span[starts-with(@id,'HomeOrder_')]/@id").extract()
             matchId = re.search('[1-9]\\d*', teamId[0], re.M | re.I).group()
+            result = response.xpath("//*[@id='" + id + "']/td[6]/text()").extract()
             url = "http://vip.win007.com/changeDetail/handicap.aspx?id=" + matchId + "&companyID=1&l=0"
             yield scrapy.Request(url, callback=self.tendency_parse, meta={
                 'info': date[0] + "  " + type[0] + "  " + mainTeam[0] + "(" + lottery[0] + ") vs " + guestTeam[0],
-                'id': re.search('[1-9]\\d*', id, re.M | re.I).group()})
+                'id': re.search('[1-9]\\d*', id, re.M | re.I).group(), 'result': result[0]})
+
 
     def tendency_parse(self, response):
         item = LotteryItem()
-        time = response.xpath("//table[@align='center']/tr/td/span[@id='odds']/table/tr/td[1]/text()").extract()
-        handicap = response.xpath("//table[@align='center']/tr/td/span[@id='odds']/table/tr/td[2]/text()").extract()
-        water = response.xpath("//table[@align='center']/tr/td/span[@id='odds']/table/tr/td[3]/text()").extract()
+        time = response.xpath("//table[@align='center']/tr/td/span[@id='odds']/table/tr/td[3]/table/tr/td[@bgcolor='red']/../../../../td[1]/text()").extract()
+        handicap = response.xpath("//table[@align='center']/tr/td/span[@id='odds']/table/tr/td[3]/table/tr/td[@bgcolor='red']/../../../../td[2]/text()").extract()
+        water = response.xpath("//table[@align='center']/tr/td/span[@id='odds']/table/tr/td[3]/table/tr/td[@bgcolor='red']/../../../../td[3]/text()").extract()
         water_new = []
         for i in water:
             water_deal = "".join(i.split())
             water_new.append(water_deal)
+        item['result'] = response.meta['result']
         item['id'] = response.meta['id']
         item['info'] = response.meta['info']
         item['tendency'] = {'time': time, 'handicap': handicap, 'water': water_new}

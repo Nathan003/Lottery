@@ -1,5 +1,6 @@
 import pymysql
-from datetime import datetime
+import re
+import datetime
 from twisted.enterprise import adbapi  # twisted的enterprise中有一个模块adbapi,可以将我们的mysql操作变成异步的操作
 
 
@@ -19,7 +20,6 @@ class MySQLTwistedPipeline(object):
         )  # 参数名称是固定的的写法
 
         dbpool = adbapi.ConnectionPool('pymysql', **dbparms)
-
         return cls(dbpool)
 
     def process_item(self, item, spider):
@@ -30,7 +30,6 @@ class MySQLTwistedPipeline(object):
 
     def handle_error(self, failure):  # 处理异步插入的异常
         print(failure)
-
 
     def water_judge(self, water):
         if water <= 0.75:
@@ -53,18 +52,26 @@ class MySQLTwistedPipeline(object):
                 '球半': -1.5, '一球/球半': -1.25, '一球': -1, '半球/一球': -0.75, '半球': -0.5, '平手/半球': -0.25, '平手': 0,
                 '受让三球': 3, '受让两球半/三球': 2.75, '受让两球半': 2.5, '受让两球/两球半': 2.25, '受让两球': 2, '受让球半/两球': 1.75,
                 '受让球半': 1.5, '受让一球/球半': 1.25, '受让一球': 1, '受让半球/一球': 0.75, '受让半球': 0.5, '受让平手/半球': 0.25}
-        sql = 'INSERT IGNORE INTO lottery (match_id,jingcai_id,type,title,change_time,handicap,' \
-              'handicap_cn,water,water_cn) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s);'
+        sql = 'INSERT ignore INTO lottery (match_id,jingcai_id,type,title,change_time,handicap,' \
+              'handicap_cn,water,water_cn,result) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'
         match_id = item['id']
+        result = item['result']
         jingcai_id = item['info'].split('  ')[0]
         type = item['info'].split('  ')[1]
         title = item['info'].split('  ')[2]
         for index in range(len(item['tendency']['handicap'])):
-            change_time =item['tendency']['time'][index]
+            change_time = item['tendency']['time'][index]
+            tidy_time = str(datetime.datetime(datetime.datetime.now().year,
+                                              int(re.split(r'[- :]', change_time)[0]),
+                                              int(re.split(r'[- :]', change_time)[1]),
+                                              int(re.split(r'[- :]', change_time)[2]),
+                                              int(re.split(r'[- :]', change_time)[3]),
+                                              0))
+            update_sql = " update lottery set result = '" + result + "' where match_id = '" + match_id + "' and change_time = '" + tidy_time + "'; "
             handicap = dict[item['tendency']['handicap'][index] + '']
             handicap_cn = item['tendency']['handicap'][index]
             water = item['tendency']['water'][index]
             water_cn = self.water_judge(float(water))
-            values = (match_id, jingcai_id, type, title, change_time,
-                      handicap, handicap_cn, water, water_cn)
+            values = (match_id, jingcai_id, type, title, tidy_time,
+                      handicap, handicap_cn, water, water_cn, result)
             cursor.execute(sql, values)
